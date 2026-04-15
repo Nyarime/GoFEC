@@ -4,7 +4,7 @@
 
 Pure Go Forward Error Correction (FEC) erasure coding library with SIMD hardware acceleration. No CGO.
 
-GoFEC provides two erasure code implementations — **RaptorQ fountain code** and **LDPC** — with AVX2/NEON assembly-accelerated GF(256) arithmetic, achieving near C/C++ performance in pure Go.
+GoFEC provides two erasure code implementations — **RaptorQ fountain code** and **LDPC** — with AVX2/NEON assembly-accelerated GF(256) arithmetic.
 
 Package home: https://github.com/Nyarime/GoFEC
 
