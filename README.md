@@ -44,3 +44,13 @@ err := codec.Decode(partialShards)
 ## 许可证
 
 Apache License 2.0
+
+## 致谢
+
+- [klauspost/reedsolomon](https://github.com/klauspost/reedsolomon) — Go生态中最优秀的Reed-Solomon实现。GoFEC的AVX2 SIMD加速策略和GF(256) VPSHUFB查表设计深受其启发。感谢Klaus Post为Go社区做出的卓越贡献。
+- [google/gofountain](https://github.com/google/gofountain) — 纯Go喷泉码参考实现。
+
+## Acknowledgments
+
+- [klauspost/reedsolomon](https://github.com/klauspost/reedsolomon) — The gold standard Reed-Solomon implementation in Go. GoFEC's AVX2 SIMD acceleration and GF(256) VPSHUFB lookup table design are deeply inspired by this exceptional library. Thank you Klaus Post for your outstanding contributions to the Go ecosystem.
+- [google/gofountain](https://github.com/google/gofountain) — Pure Go fountain code reference implementation.
