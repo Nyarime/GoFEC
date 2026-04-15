@@ -1,11 +1,10 @@
-package raptorq
-import "github.com/nyarime/gofec/internal/xor"
+//go:build !amd64
+
+package xor
 
 import "unsafe"
 
-func xorFast(dst, src []byte) {
-	xor.Bytes(dst, src); return
-	// uint64 fallback:
+func Bytes(dst, src []byte) {
 	n := len(dst)
 	if len(src) < n { n = len(src) }
 	words := n / 8

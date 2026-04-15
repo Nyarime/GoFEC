@@ -1,8 +1,11 @@
 package ldpc
+import "github.com/nyarime/gofec/internal/xor"
 
 import "unsafe"
 
 func xorFast(dst, src []byte) {
+	xor.Bytes(dst, src); return
+	// uint64 fallback:
 	n := len(dst)
 	if len(src) < n { n = len(src) }
 	words := n / 8
