@@ -14,13 +14,13 @@
 ## 安装
 
 ```bash
-go get github.com/nyarime/fec-go
+go get github.com/nyarime/gofec
 ```
 
 ## 使用
 
 ```go
-import "github.com/nyarime/fec-go/ldpc"
+import "github.com/nyarime/gofec/ldpc"
 
 // LDPC: 10数据块 + 4校验块, 密度0.3
 codec := ldpc.New(10, 4, 0.3)
