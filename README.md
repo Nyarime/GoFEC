@@ -143,3 +143,16 @@ We believe in contributing back to the Go ecosystem. This library is our effort 
 
 - [klauspost/reedsolomon](https://github.com/klauspost/reedsolomon) — The gold standard Reed-Solomon implementation in Go. GoFEC's AVX2 SIMD acceleration and GF(256) VPSHUFB lookup table design are deeply inspired by this exceptional library. Thank you Klaus Post for your outstanding contributions to the Go ecosystem.
 - [google/gofountain](https://github.com/google/gofountain) — Pure Go fountain code reference implementation.
+
+## RaptorQ vs LDPC 选择指南
+
+| 场景 | 推荐 | 理由 |
+|------|------|------|
+| 实时视频/游戏 | LDPC | BP解码快, 固定冗余 |
+| 文件传输/分发 | RaptorQ | 丢包率未知也能恢复 |
+| 卫星/高丢包链路 | RaptorQ | 喷泉码天生抗丢包 |
+| 5G/物理层 | LDPC | 硬件友好, 标准采用 |
+| 未知带宽传输 | RaptorQ | 随时多发修复符号 |
+
+**LDPC** = 更快、更省 (已知丢包)
+**RaptorQ** = 更灵活、更鲁棒 (未知丢包)
