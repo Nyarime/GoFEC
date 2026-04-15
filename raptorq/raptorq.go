@@ -55,7 +55,6 @@ func (c *Codec) Encode(data []byte, numRepair int) []Symbol {
 	source := splitData(data, K, T)
 
 	// 2. 生成中间符号(pre-code)
-	intermediate := c.generateIntermediate(source)
 
 	// 3. LT编码: 源符号(系统码) + 修复符号
 	symbols := make([]Symbol, K+numRepair)
@@ -68,12 +67,12 @@ func (c *Codec) Encode(data []byte, numRepair int) []Symbol {
 		}
 	}
 
-	// 修复符号(LT编码)
+	// 修复符号(LT编码: 直接XOR源符号)
 	for i := 0; i < numRepair; i++ {
 		esi := uint32(K + i)
 		symbols[K+i] = Symbol{
 			ESI:  esi,
-			Data: c.ltEncode(intermediate, esi),
+			Data: c.ltEncode(source, esi),
 		}
 	}
 
@@ -182,83 +181,121 @@ func (c *Codec) generateIntermediate(source [][]byte) [][]byte {
 }
 
 // ltEncode LT编码: 从中间符号生成一个编码符号
-func (c *Codec) ltEncode(intermediate [][]byte, esi uint32) []byte {
+func (c *Codec) ltEncode(source [][]byte, esi uint32) []byte {
+	K := c.sourceSymbols
 	T := c.symbolSize
 	result := make([]byte, T)
 
-	// LT度分布 + 邻居选择
-	degree := ltDegree(esi, c.numLT)
-	neighbors := ltNeighbors(esi, degree, c.numLT)
+	// LT度分布 + 邻居选择(只在源符号范围内)
+	degree := ltDegree(esi, K)
+	neighbors := ltNeighbors(esi, degree, K)
 
 	for _, n := range neighbors {
-		if n < len(intermediate) {
-			xorSymbol(result, intermediate[n])
+		if n < len(source) {
+			xorSymbol(result, source[n])
 		}
 	}
 
 	return result
 }
 
-// gaussianDecode 高斯消元解码
+// gaussianDecode 完整高斯消元解码
 func (c *Codec) gaussianDecode(received []Symbol) ([][]byte, error) {
 	K := c.sourceSymbols
 	T := c.symbolSize
-	
-	// 先检查是否有足够的源符号
+
 	result := make([][]byte, K)
-	missing := make([]bool, K)
-	
-	for i := 0; i < K; i++ {
-		missing[i] = true
-	}
-	
+	missing := []int{}
+
 	// 用已收到的源符号填充
+	have := make(map[int]bool)
 	for _, sym := range received {
 		if int(sym.ESI) < K {
 			result[sym.ESI] = make([]byte, T)
 			copy(result[sym.ESI], sym.Data)
-			missing[sym.ESI] = false
+			have[int(sym.ESI)] = true
 		}
 	}
-	
-	// 用修复符号恢复丢失的源符号
+
+	for i := 0; i < K; i++ {
+		if !have[i] { missing = append(missing, i) }
+	}
+	if len(missing) == 0 { return result, nil }
+
+	// 收集修复方程
+	type equation struct {
+		coeffs map[int]bool // 哪些源符号参与(XOR)
+		value  []byte       // 方程右边的值
+	}
+	equations := []equation{}
+
 	for _, sym := range received {
 		if int(sym.ESI) >= K {
-			// 这是修复符号,用LT解码恢复
-			degree := ltDegree(sym.ESI, c.numLT)
-			neighbors := ltNeighbors(sym.ESI, degree, c.numLT)
-			
-			// 找只缺一个的方程
-			unknowns := 0
-			unknownIdx := -1
-			repairData := make([]byte, T)
-			copy(repairData, sym.Data)
-			
+			degree := ltDegree(sym.ESI, c.sourceSymbols)
+			neighbors := ltNeighbors(sym.ESI, degree, c.sourceSymbols)
+
+			eq := equation{
+				coeffs: make(map[int]bool),
+				value:  make([]byte, T),
+			}
+			copy(eq.value, sym.Data)
+
 			for _, n := range neighbors {
 				if n < K {
-					if missing[n] {
-						unknowns++
-						unknownIdx = n
+					if have[n] {
+						// 已知: XOR掉
+						xorSymbol(eq.value, result[n])
 					} else {
-						xorSymbol(repairData, result[n])
+						eq.coeffs[n] = true
 					}
 				}
 			}
-			
-			if unknowns == 1 && unknownIdx >= 0 {
-				result[unknownIdx] = repairData
-				missing[unknownIdx] = false
+
+			if len(eq.coeffs) > 0 {
+				equations = append(equations, eq)
 			}
 		}
 	}
-	
-	// 检查是否全部恢复
-	for i := 0; i < K; i++ {
-		if missing[i] {
-			return nil, errors.New("decode failed: not enough repair symbols")
+
+	// 迭代消元(多轮BP+高斯混合)
+	for iter := 0; iter < 50 && len(missing) > 0; iter++ {
+		progress := false
+
+		for i := len(equations) - 1; i >= 0; i-- {
+			eq := &equations[i]
+
+			// 移除已知变量
+			for v := range eq.coeffs {
+				if have[v] {
+					xorSymbol(eq.value, result[v])
+					delete(eq.coeffs, v)
+				}
+			}
+
+			// 只剩1个未知→直接解
+			if len(eq.coeffs) == 1 {
+				for v := range eq.coeffs {
+					result[v] = eq.value
+					have[v] = true
+					progress = true
+					// 从missing移除
+					for j, m := range missing {
+						if m == v {
+							missing = append(missing[:j], missing[j+1:]...)
+							break
+						}
+					}
+				}
+				equations = append(equations[:i], equations[i+1:]...)
+			}
 		}
+
+		if !progress { break }
 	}
-	
+
+	if len(missing) > 0 {
+		return nil, errors.New("decode failed: not enough repair symbols")
+	}
 	return result, nil
 }
 
