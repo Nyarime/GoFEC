@@ -302,6 +302,8 @@ func (c *Codec) gaussianDecode(received []Symbol) ([][]byte, error) {
 // === 辅助函数 ===
 
 func xorSymbol(dst, src []byte) {
+	xorFast(dst, src); return
+	// 旧实现:
 	for i := range dst {
 		if i < len(src) { dst[i] ^= src[i] }
 	}

@@ -9,7 +9,7 @@
 //   codec := raptorqgo.NewRaptorQ(numSource)
 //   encoded := codec.Encode(data)
 //   decoded := codec.Decode(partialBlocks)
-package raptorqgo
+package gofec
 
 // Codec FEC编解码接口
 type Codec interface {
