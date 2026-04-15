@@ -337,7 +337,7 @@ func hdpcCoeff(row, col, H int) byte {
 }
 
 // gfMulAdd GF(256)乘加: dst += src * coeff
-func gfMulAdd(dst, src []byte, coeff byte) { gf256.MulAdd(dst, src, coeff); return }
+func gfMulAdd(dst, src []byte, coeff byte) { gf256.MulAddRegion(dst, src, coeff); return }
 func gfMulAddOld(dst, src []byte, coeff byte) {
 	if coeff == 0 { return }
 	if coeff == 1 { xorSymbol(dst, src); return }
