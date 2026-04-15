@@ -6,7 +6,6 @@ package ldpc
 
 import (
 	"errors"
-	"math/rand"
 )
 
 // Codec LDPC编解码器
@@ -31,19 +30,11 @@ func New(numData, numParity int, density float64) *Codec {
 
 // generateMatrix 生成随机稀疏校验矩阵
 func (c *Codec) generateMatrix() {
-	rng := rand.New(rand.NewSource(42))
-	c.matrix = make([][]bool, c.numParity)
-	for i := range c.matrix {
-		c.matrix[i] = make([]bool, c.numData+c.numParity)
-		// 每行随机选density比例的位设为1
-		for j := range c.matrix[i] {
-			if rng.Float64() < c.density {
-				c.matrix[i][j] = true
-			}
-		}
-		// 确保对角线校验位为1
-		c.matrix[i][c.numData+i] = true
-	}
+	// v1.1: PEG构造(最大化girth，BP收敛更快)
+	dv := int(c.density * float64(c.numParity)) + 1
+	if dv < 2 { dv = 2 }
+	if dv > c.numParity { dv = c.numParity }
+	c.matrix = BuildPEGMatrix(c.numData, c.numParity, dv)
 }
 
 // Encode 编码: 数据块→数据块+校验块
