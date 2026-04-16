@@ -238,7 +238,7 @@ func (c *Codec) gaussianDecode(received []Symbol) ([][]byte, error) {
 
 	// 收集修复方程
 	type equation struct {
-		coeffs map[int]bool // 哪些源符号参与(XOR)
+		coeffs *Bitset // 哪些源符号参与(XOR, 位图加速)
 		value  []byte       // 方程右边的值
 	}
 	equations := []equation{}
@@ -249,7 +249,7 @@ func (c *Codec) gaussianDecode(received []Symbol) ([][]byte, error) {
 			neighbors := ltNeighbors(sym.ESI, degree, c.sourceSymbols)
 
 			eq := equation{
-				coeffs: make(map[int]bool),
+				coeffs: NewBitset(K),
 				value:  make([]byte, T),
 			}
 			copy(eq.value, sym.Data)
@@ -260,12 +260,12 @@ func (c *Codec) gaussianDecode(received []Symbol) ([][]byte, error) {
 						// 已知: XOR掉
 						xorSymbol(eq.value, result[n])
 					} else {
-						eq.coeffs[n] = true
+						eq.coeffs.Set(n)
 					}
 				}
 			}
 
-			if len(eq.coeffs) > 0 {
+			if eq.coeffs.Count() > 0 {
 				equations = append(equations, eq)
 			}
 		}
@@ -279,16 +279,16 @@ func (c *Codec) gaussianDecode(received []Symbol) ([][]byte, error) {
 			eq := &equations[i]
 
 			// 移除已知变量
-			for v := range eq.coeffs {
+			v := eq.coeffs.First(); if v >= 0 {
 				if have[v] {
 					xorSymbol(eq.value, result[v])
-					delete(eq.coeffs, v)
+					eq.coeffs.Clear(v)
 				}
 			}
 
 			// 只剩1个未知→直接解
-			if len(eq.coeffs) == 1 {
-				for v := range eq.coeffs {
+			if eq.coeffs.Count() == 1 {
+				v := eq.coeffs.First(); if v >= 0 {
 					result[v] = eq.value
 					have[v] = true
 					progress = true
