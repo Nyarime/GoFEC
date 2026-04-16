@@ -45,3 +45,10 @@ func (b *Bitset) ForEach(f func(int)) {
 		}
 	}
 }
+
+// XOR performs bitwise XOR of two bitsets (modifies dst)
+func (b *Bitset) XOR(other *Bitset) {
+	for i := 0; i < len(b.bits) && i < len(other.bits); i++ {
+		b.bits[i] ^= other.bits[i]
+	}
+}

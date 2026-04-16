@@ -13,6 +13,7 @@ import (
 	"github.com/nyarime/gofec/internal/gf256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 )
 
@@ -391,3 +392,158 @@ func ltNeighbors(esi uint32, degree, L int) []int {
 
 // 忽略binary包的unused警告
 var _ = binary.BigEndian
+
+// DecodeWithErasures 解码时标记哪些source symbols是damaged
+// damagedESIs: 被损坏的source symbol ESI列表
+func (c *Codec) DecodeWithErasures(received []Symbol, dataLen int, damagedESIs []int) ([]byte, error) {
+	K := c.sourceSymbols
+	T := c.symbolSize
+
+	result := make([][]byte, K)
+	missing := []int{}
+	have := make(map[int]bool)
+
+	// 标记damaged ESIs
+	damaged := make(map[int]bool)
+	for _, esi := range damagedESIs {
+		damaged[esi] = true
+	}
+
+	// 用已收到的source symbols填充(跳过damaged的)
+	for _, sym := range received {
+		if int(sym.ESI) < K && !damaged[int(sym.ESI)] {
+			result[sym.ESI] = make([]byte, T)
+			copy(result[sym.ESI], sym.Data)
+			have[int(sym.ESI)] = true
+		}
+	}
+
+	for i := 0; i < K; i++ {
+		if !have[i] { missing = append(missing, i) }
+	}
+	if len(missing) == 0 {
+		out := make([]byte, 0, dataLen)
+		for _, r := range result { out = append(out, r...) }
+		if len(out) > dataLen { out = out[:dataLen] }
+		return out, nil
+	}
+
+	// 收集修复方程
+	type equation struct {
+		coeffs *Bitset
+		value  []byte
+	}
+	equations := []equation{}
+
+	for _, sym := range received {
+		if int(sym.ESI) >= K {
+			degree := ltDegree(sym.ESI, c.sourceSymbols)
+			neighbors := ltNeighbors(sym.ESI, degree, c.sourceSymbols)
+
+			eq := equation{
+				coeffs: NewBitset(K),
+				value:  make([]byte, T),
+			}
+			copy(eq.value, sym.Data)
+
+			for _, n := range neighbors {
+				if n < K {
+					if have[n] {
+						xorSymbol(eq.value, result[n])
+					} else {
+						eq.coeffs.Set(n)
+					}
+				}
+			}
+
+			if eq.coeffs.Count() > 0 {
+				equations = append(equations, eq)
+			}
+		}
+	}
+
+	// Full Gaussian elimination on missing variables
+	// First: eliminate all known variables from equations
+	for i := range equations {
+		eq := &equations[i]
+		toRemove := []int{}
+		eq.coeffs.ForEach(func(v int) {
+			if have[v] {
+				toRemove = append(toRemove, v)
+			}
+		})
+		for _, v := range toRemove {
+			xorSymbol(eq.value, result[v])
+			eq.coeffs.Clear(v)
+		}
+	}
+	
+	// Map missing variables to dense indices
+	missingIdx := make(map[int]int)
+	for i, m := range missing {
+		missingIdx[m] = i
+	}
+	M := len(missing)
+	
+	// Build dense matrix: each equation row, each column = a missing var
+	type matRow struct {
+		coeff *Bitset
+		value []byte
+	}
+	rows := []matRow{}
+	for _, eq := range equations {
+		if eq.coeffs.Count() > 0 {
+			rows = append(rows, matRow{coeff: eq.coeffs, value: eq.value})
+		}
+	}
+	
+	// Gaussian elimination with partial pivoting
+	pivotRow := 0
+	for col := 0; col < M && pivotRow < len(rows); col++ {
+		origVar := missing[col]
+		// Find pivot
+		found := -1
+		for r := pivotRow; r < len(rows); r++ {
+			if rows[r].coeff.Has(origVar) {
+				found = r
+				break
+			}
+		}
+		if found < 0 { continue }
+		
+		// Swap
+		rows[pivotRow], rows[found] = rows[found], rows[pivotRow]
+		
+		// Eliminate using XOR
+		for r := 0; r < len(rows); r++ {
+			if r != pivotRow && rows[r].coeff.Has(origVar) {
+				xorSymbol(rows[r].value, rows[pivotRow].value)
+				rows[r].coeff.XOR(rows[pivotRow].coeff)
+			}
+		}
+		pivotRow++
+	}
+	
+	// Back-substitution: rows with single coefficient = solved
+	for _, row := range rows {
+		if row.coeff.Count() == 1 {
+			v := row.coeff.First()
+			result[v] = row.value
+			have[v] = true
+			newMissing := []int{}
+			for _, m := range missing {
+				if m != v { newMissing = append(newMissing, m) }
+			}
+			missing = newMissing
+		}
+	}
+
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("decode: %d of %d still missing after BP", len(missing), K)
+	}
+
+	out := make([]byte, 0, dataLen)
+	for _, r := range result { out = append(out, r...) }
+	if len(out) > dataLen { out = out[:dataLen] }
+	return out, nil
+}
