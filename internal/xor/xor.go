@@ -1,7 +1,8 @@
-// Package xor provides hardware-accelerated XOR operations.
-// AVX2: 32 bytes/op, SSE2: 16 bytes/op, fallback: 8 bytes/op
+//go:build amd64 || arm64
+
 package xor
 
 // Bytes XORs src into dst: dst[i] ^= src[i]
-// Uses AVX2 when available, falls back to uint64.
+// Implemented in xor_amd64.s and xor_arm64.s; xor_generic.go covers every
+// other architecture.
 func Bytes(dst, src []byte)
