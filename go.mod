@@ -1,4 +1,4 @@
-module github.com/nyarime/gofec
+module github.com/nyarime/gofec/v2
 
 go 1.25.0
 

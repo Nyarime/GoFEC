@@ -1,5 +1,5 @@
 package raptorq
-import "github.com/nyarime/gofec/internal/xor"
+import "github.com/nyarime/gofec/v2/internal/xor"
 
 import "unsafe"
 

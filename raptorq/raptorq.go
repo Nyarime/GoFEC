@@ -10,7 +10,7 @@
 package raptorq
 
 import (
-	"github.com/nyarime/gofec/internal/gf256"
+	"github.com/nyarime/gofec/v2/internal/gf256"
 	"encoding/binary"
 	"errors"
 	"fmt"

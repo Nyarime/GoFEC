@@ -4,9 +4,9 @@
 package gofec
 
 import (
-	"github.com/nyarime/gofec/leopard"
-	"github.com/nyarime/gofec/ldpc"
-	"github.com/nyarime/gofec/raptorq"
+	"github.com/nyarime/gofec/v2/leopard"
+	"github.com/nyarime/gofec/v2/ldpc"
+	"github.com/nyarime/gofec/v2/raptorq"
 )
 
 // Codec is a generic FEC encoder/decoder over one payload buffer.
