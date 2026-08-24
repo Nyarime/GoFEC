@@ -1,28 +1,36 @@
-// Package raptorqgo provides pure Go implementations of
-// RaptorQ (RFC 6330) and LDPC erasure codes.
-//
-// FEC Types:
-//   - RaptorQ: rateless fountain code, unlimited repair symbols
-//   - LDPC: low-density parity-check, high efficiency for large blocks
-//
-// Usage:
-//   codec := raptorqgo.NewRaptorQ(numSource)
-//   encoded := codec.Encode(data)
-//   decoded := codec.Decode(partialBlocks)
+// Package gofec provides pure Go forward error correction codecs:
+// RaptorQ fountain codes, LDPC block codes and Leopard-RS (GF(2^16), up to
+// 65536 shards). See subpackages for typed APIs.
 package gofec
 
-// Codec FEC编解码接口
+import (
+	"github.com/nyarime/gofec/leopard"
+	"github.com/nyarime/gofec/ldpc"
+	"github.com/nyarime/gofec/raptorq"
+)
+
+// Codec is a generic FEC encoder/decoder over one payload buffer.
 type Codec interface {
-	// Encode 编码数据为多个块(source + repair)
-	Encode(data []byte) []Block
-	// Decode 从部分块恢复数据
-	Decode(blocks []Block, dataLen int) ([]byte, error)
-	// Type 返回编码类型
 	Type() string
 }
 
-// Block 编码块
-type Block struct {
-	ID   int64  // 块序号(source=0..N-1, repair=N..)
-	Data []byte // 块数据
+// NewRaptorQ creates a RaptorQ codec with K source symbols of T bytes each.
+func NewRaptorQ(sourceSymbols, symbolSize int) *raptorq.Codec {
+	return raptorq.New(sourceSymbols, symbolSize)
+}
+
+// NewLDPC creates an LDPC codec.
+func NewLDPC(numData, numParity int, density float64) *ldpc.Codec {
+	return ldpc.New(numData, numParity, density)
+}
+
+// NewLeopard creates a Leopard-RS codec for large payloads.
+func NewLeopard(dataShards, parityShards int) (*leopard.Codec, error) {
+	return leopard.NewCodec(dataShards, parityShards)
+}
+
+// NewLeopardForPayload sizes a Leopard codec to fit dataLen at percent redundancy.
+func NewLeopardForPayload(dataLen, percent, shardSize int) (*leopard.Codec, error) {
+	c, _, err := leopard.NewCodecForPayload(dataLen, percent, shardSize)
+	return c, err
 }

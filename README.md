@@ -167,7 +167,7 @@ GoFEC/
 
 - [x] v1.0 — RaptorQ + LDPC + AVX2 + NEON
 - [x] v1.x — AVX512 GFNI运行时加速 (3倍GF提速)
-- [ ] v2.0 — GF(2^16) + Leopard-RS (65536分片)
+- [x] v2.0 — GF(2^16) 公开包 + Leopard-RS 高层 API (65536分片) + RaptorQ 喷泉扩展
 
 
 ## Benchmark
